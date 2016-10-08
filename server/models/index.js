@@ -2,7 +2,20 @@ var db = require('../db');
 
 module.exports = {
   messages: {
-    get: function () {}, // a function which produces all the messages
+    get: function (obj, callback) {
+      // console.log(obj);
+      var conn = db.createDBConnection();
+      var selectAllMsgs = 'SELECT m.text, r.name as roomname FROM messages m, rooms r WHERE m.roomId = r.id';
+      console.log(selectAllMsgs);
+      conn.query(selectAllMsgs, {}, function(err, res) {
+        if (err) { console.error(err); }
+        console.log(JSON.stringify(res));
+
+        callback(JSON.stringify(res));
+      });
+
+    }, // a function which produces all the messages
+
     post: function (obj) {
       console.log('post message model', obj);
       var conn = db.createDBConnection();
@@ -34,8 +47,26 @@ module.exports = {
                 console.error(err);
               }
               console.log('last room insert id: ', res.insertId);
-
+              var roomId = res.insertId;
               // insert the new message
+              console.log('room exists, insert new message, userId', userId, 'roomId', roomId, 'text', obj.message);
+
+              var insertMessageSql = 'INSERT INTO messages (userId, roomId, text) VALUES (?, ?, ?)';
+              console.log(insertMessageSql);
+              conn.query(insertMessageSql, 
+                        [ userId, 
+                        roomId, 
+                        obj.message ], 
+                        // Date.now().toLocaleString() ], 
+                        function(err, res) {
+                          if (err) {
+                            console.error(err);
+                          }
+                          console.log('INSERTED A NEW MESSAGE!', res.insertId);
+                          console.log('connection END');
+                          conn.end();
+                        }
+              );
 
             });
           } else {
@@ -50,39 +81,55 @@ module.exports = {
                       [ userId, 
                       roomId, 
                       obj.message ], 
-                      // Date.now().toLocaleString() ], 
                       function(err, res) {
                         if (err) {
                           console.error(err);
                         }
                         console.log('INSERTED A NEW MESSAGE!', res.insertId);
+
+                        console.log('connection END');
+                        conn.end();
                       }
             );
           }
 
         });
 
-      });
-      // console.log('userId', userId);
-      // check if room exists
 
-      //
-    } // a function which can be used to insert a message into the database
+
+      });
+    }
   },
 
   users: {
-    // Ditto as above.
+
     get: function () {},
     post: function (obj) {
       console.log('post users model');
-      var sql = 'INSERT INTO users (name) VALUES (?)';
-      console.log(sql);
-      db.createDBConnection().query(sql, obj.username, function(err, res) {
-        if (err) {
-          console.log(err); 
+
+      var conn = db.createDBConnection();
+      // get user id
+      var selectUserIdSql = 'SELECT id FROM users WHERE name=?';
+      console.log(selectUserIdSql);
+      conn.query(selectUserIdSql, obj.username, function(err, res) {
+        if (err) { console.error(err); }
+
+        if (res.length === 0) {
+          var sql = 'INSERT INTO users (name) VALUES (?)';
+          console.log(sql);
+          db.createDBConnection().query(sql, obj.username, function(err, res) {
+            if (err) {
+              console.error(err); 
+            }
+            console.log('user last insert id:', res.insertId);
+            // console.log('connection END');
+            // conn.end();
+          });
         }
-        console.log('last insert id:', res.insertId);
+        console.log('connection END');
+        conn.end();
       });
+
     }
   }
 };
