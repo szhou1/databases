@@ -1,5 +1,6 @@
 var models = require('../models');
 
+
 module.exports = {
   messages: {
     get: function (req, res) {
@@ -9,7 +10,7 @@ module.exports = {
       });
     }, // a function which handles a get request for all messages
     post: function (req, res) {
-      console.log('post message controller');
+      console.log('post message controller', req.body);
       models.messages.post(req.body);
       res.end();
     } // a function which handles posting a message to the database
@@ -17,7 +18,12 @@ module.exports = {
 
   users: {
     // Ditto as above
-    get: function (req, res) {},
+    get: function (req, res) {
+      console.log('get users in controller');
+      models.users.get(req.body, function(body) {
+        res.end(body);
+      });
+    },
     post: function (req, res) {
       console.log('post users controller!!!');
       console.log(models.messages.post);
@@ -26,6 +32,13 @@ module.exports = {
 
       res.end();
     }
-  }
+  },
+
+  // client: {
+  //   get: function (req, res) {
+  //     console.log('client get', req);
+  //     res.end();
+  //   }
+  // }
 };
 
