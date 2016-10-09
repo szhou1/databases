@@ -20,15 +20,15 @@ describe('Persistent Node Chat Server', function() {
 
     /* Empty the db table before each test so that multiple tests
      * (or repeated runs of the tests) won't screw each other up: */
-    // dbConnection.query('truncate ' + tablename, done);
-    done();
+    dbConnection.query('truncate ' + tablename, done);
+    // done();
   });
 
   afterEach(function() {
     dbConnection.end();
   });
 
-  xit('Should insert posted messages to the DB', function(done) {
+  it('Should insert posted messages to the DB', function(done) {
     // Post the user to the chat server.
     request({
       method: 'POST',
@@ -42,7 +42,7 @@ describe('Persistent Node Chat Server', function() {
         json: {
           username: 'Valjean',
           message: 'In mercy\'s name, three days is all I need.',
-          roomname: 'Hello'
+          roomname: 'PLACE'
         }
       }, function () {
         console.log('COMPLETED POSTING MESSAGE');
@@ -68,7 +68,7 @@ describe('Persistent Node Chat Server', function() {
     });
   });
 
-  it('Should output all messages from the DB', function(done) {
+  xit('Should output all messages from the DB', function(done) {
     // Let's insert a message into the db
     var queryString = 'SELECT * FROM messages;';
     var queryArgs = [];

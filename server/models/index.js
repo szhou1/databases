@@ -1,163 +1,163 @@
-var db = require('../db');
+// var db = require('../db');
+var Promise = require('bluebird');
+var Sequelize = require('sequelize');
+
+var db = new Sequelize('chat', 'root', 'hr48', {
+  define: {
+    timestamps: false
+  }
+});
+
+var User = db.define('User', {
+  id: {
+    type: Sequelize.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  name: Sequelize.STRING
+});
+
+var Room = db.define('Room', {
+  id: {
+    type: Sequelize.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  name: Sequelize.STRING
+});
+
+var Message = db.define('Message', {
+  id: {
+    type: Sequelize.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  }, 
+  text: Sequelize.STRING
+});
+
+User.hasMany(Message);
+Room.hasMany(Message);
+Message.belongsTo(User);
+Message.belongsTo(Room);
 
 module.exports = {
   messages: {
     get: function (obj, callback) {
-      // console.log(obj);
-      var conn = db.createDBConnection();
-      var selectAllMsgs = 'SELECT m.text, r.name AS roomname, u.name AS username FROM messages m, rooms r, users u WHERE r.id = m.roomId AND u.id = m.userId';
-      console.log(selectAllMsgs);
-      conn.query(selectAllMsgs, {}, function(err, res) {
-        if (err) { console.error(err); }
-        console.log(JSON.stringify(res));
-
-        callback(JSON.stringify(res));
-      });
-
-    }, // a function which produces all the messages
+      console.log('get messages in model');
+      Message.sync()
+        .then(function() {
+          return Message.findAll({ include: [
+                    {model: User}, 
+                    {model: Room}
+          ]});
+        })
+        .then(function(messages) {
+          callback(JSON.stringify(messages));
+        })
+        .catch(function(err) {
+          console.error(err);
+          // db.close();
+        });
+    },
 
     post: function (obj) {
-      console.log('post message model', obj);
-      var conn = db.createDBConnection();
-      // get user id
-      var selectUserIdSql = 'SELECT id FROM users WHERE name=?';
-      console.log(selectUserIdSql);
-      conn.query(selectUserIdSql, obj.username, function(err, res) {
-        if (err) {
-          console.error(err);
-        }
-        if (!res || res.length === 0) {
-          console.log('ihihihihii');
-          //create user
-          module.exports.users.post({username: obj.username}, function() {
-
-            var userId = res[0].id;
-            console.log('userId', userId);
-            // have valid user id, find room id
-            var selectRoomIdSql = 'SELECT id FROM rooms WHERE name=?';
-            console.log(selectRoomIdSql);
-            conn.query(selectRoomIdSql, obj.roomname, function(err, res) {
-              console.log('response from select id from rooms', res);
-
-              if (err) {
-                console.error(err);
-              }
-              if (res.length === 0) {
-                // create new entry to rooms
-                var sql = 'INSERT INTO rooms (name) VALUES (?)';
-                console.log(sql);
-
-                conn.query(sql, obj.roomname, function(err, res) {
-                  if (err) {
-                    console.error(err);
-                  }
-                  console.log('last room insert id: ', res.insertId);
-                  var roomId = res.insertId;
-                  // insert the new message
-                  console.log('room exists, insert new message, userId', userId, 'roomId', roomId, 'text', obj.message);
-
-                  var insertMessageSql = 'INSERT INTO messages (userId, roomId, text) VALUES (?, ?, ?)';
-                  console.log(insertMessageSql);
-                  conn.query(insertMessageSql, 
-                            [ userId, 
-                            roomId, 
-                            obj.message ], 
-                            // Date.now().toLocaleString() ], 
-                            function(err, res) {
-                              if (err) {
-                                console.error(err);
-                              }
-                              console.log('INSERTED A NEW MESSAGE!', res.insertId);
-                              console.log('connection END');
-                              conn.end();
-                            }
-                  );
-
-                });
-              } else {
-                // room id exists, insert new message
-                console.log('roomId', res[0].id);
-                var roomId = res[0].id;
-                console.log('room exists, insert new message, userId', userId, 'roomId', roomId, 'text', obj.message);
-
-                var insertMessageSql = 'INSERT INTO messages (userId, roomId, text) VALUES (?, ?, ?)';
-                console.log(insertMessageSql);
-                conn.query(insertMessageSql, 
-                          [ userId, 
-                          roomId, 
-                          obj.message ], 
-                          function(err, res) {
-                            if (err) {
-                              console.error(err);
-                            }
-                            console.log('INSERTED A NEW MESSAGE!', res.insertId);
-
-                            console.log('connection END');
-                            conn.end();
-                          }
-                );
-              }
-
-            });
-
-
-
-
-            
+      console.log(obj);
+      var insertMessage = function(obj) {
+        return new Promise(function(resolve, reject) {      
+          module.exports.users.post(obj.username, function(user) {
+            console.log('userid', user.id);
+            resolve({obj: obj, userId: user.id});
           });
-        }
+        });
+      };
 
+      insertMessage(obj).then(function(o) {
+        return new Promise( function(resolve, reject) {
+          console.log('after resolve', o);
+          module.exports.rooms.post(o.obj.roomname, function(room) {
+            console.log('roomId', room.id);
+            o['roomId'] = room.id;
+            resolve(o);
+          });
+        });
+      })
+      .then(function(o) {
+        console.log(o);
+        return new Promise( function(resolve, reject) {
+          Message.create({text: o.obj.text, UserId: o.userId, RoomId: o.roomId})
+            .then(function(msg, created) {
+              console.log(msg);
+              console.log(created);
+              
+            });
+            // .success(function(msg, created) {
+            // });
+          // console.log(msg);
+        });
 
       });
+
+      // insertMessage(obj);
     }
   },
 
   users: {
 
     get: function (obj, callback) {
-      var conn = db.createDBConnection();
-      var selectAllUsrs = 'SELECT name FROM users;';
-      
-      conn.query(selectAllUsrs, {}, function(err, res) {
-        if (err) { console.error(err); }
-        console.log(JSON.stringify(res));
-        callback(JSON.stringify(res));
-      });
+      User.sync()
+        .then(function() {
+          return User.findAll({});
+        })
+        .then(function(users) {
+          callback(JSON.stringify(users));
+          // db.close();
+        })
+        .catch(function(err) {
+          console.error(err);
+          // db.close();
+        });
     },
+
     post: function (obj, callback) {
       console.log('post users model', obj);
 
-      var conn = db.createDBConnection();
-      // get user id
-      var selectUserIdSql = 'SELECT id FROM users WHERE name=?';
-      console.log(selectUserIdSql);
-      conn.query(selectUserIdSql, obj.username, function(err, res) {
-        if (err) { console.error(err); }
-
-        if (!res || res.length === 0) {
-          var sql = 'INSERT INTO users (name) VALUES (?)';
-          console.log(sql);
-          db.createDBConnection().query(sql, obj.username, function(err, res) {
-            if (err) {
-              console.error(err); 
-            }
-            console.log('user last insert id:', res.insertId);
-            // console.log('connection END');
-            // conn.end();
-            callback();
-          });
-        }
-        console.log('connection END');
-        conn.end();
-      });
-
+      User.findOrCreate({ where: { name: obj }, defaults: { name: obj}})
+        .spread(function(user, created) {
+          console.log(user.get({ plain: true}));
+          console.log(created);
+          callback(user.get({plain: true}));
+        });
     }
   },
 
-  // client: {
-  //   get: function(obj, callback) {
+  rooms: {
 
-  //   }
-  // }
+    get: function (obj, callback) {
+      Room.sync()
+        .then(function() {
+          return Room.findAll({});
+        })
+        .then(function(rooms) {
+          callback(JSON.stringify(rooms));
+        })
+        .catch(function(err) {
+          console.error(err);
+          // db.close();
+        });
+    },
+
+    post: function (obj, callback) {
+      console.log('post rooms model', obj);
+
+      Room.findOrCreate({ where: { name: obj }})
+        .spread(function(room, created) {
+          console.log(room.get({ plain: true}));
+          console.log('created?', created);
+          callback(room.get({ plain: true}));
+        });
+    }
+    
+  }
+
 };
 

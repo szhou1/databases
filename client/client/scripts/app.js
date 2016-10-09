@@ -30,9 +30,9 @@ var app = {
     app.fetch(false);
 
     // Poll for new messages
-    setInterval(function() {
-      app.fetch(true);
-    }, 3000);
+    // setInterval(function() {
+    //   app.fetch(true);
+    // }, 3000);
   },
 
   send: function(message) {
@@ -43,7 +43,8 @@ var app = {
       url: app.server + 'classes/messages',
       type: 'POST',
       // datatype: 'jsonp',
-      data: JSON.stringify(message),
+      // data: JSON.stringify(message),
+      data: message,
       success: function (data) {
         // Clear messages input
         app.$message.val('');
@@ -68,6 +69,16 @@ var app = {
       success: function(data) {
         console.log(data);
         data = JSON.parse(data);
+
+        data.forEach(function(message) {
+          message['username'] = message.User.name;
+          message['roomname'] = message.Room.name;
+          delete message.User;
+          delete message.Room;
+        });
+
+        console.log(data);
+
         // Don't bother if we have nothing to work with
         if (!data || !data.length) { return; }
 

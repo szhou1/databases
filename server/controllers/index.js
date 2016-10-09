@@ -34,11 +34,18 @@ module.exports = {
     }
   },
 
-  // client: {
-  //   get: function (req, res) {
-  //     console.log('client get', req);
-  //     res.end();
-  //   }
-  // }
+  rooms: {
+    get: function (req, res) {
+      console.log('get rooms in controller');
+      models.rooms.get(req.body, function(body) {
+        res.end(body);
+      });
+    },
+    post: function (req, res) {
+      console.log('post rooms in controller');
+      models.rooms.post(req.body);
+      res.end();
+    }
+  }
 };
 
